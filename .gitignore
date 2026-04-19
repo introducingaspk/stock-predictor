@@ -1,6 +1,5 @@
+*.exe
+*.pem
+*.pkl
 venv/
 __pycache__/
-*.pyc
-*.pkl
-*.pem
-.env
