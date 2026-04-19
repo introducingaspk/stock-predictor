@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Price Predictor</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            text-align: center;
+            margin: 0;
+            color: white;
+        }
+
+        .container {
+            margin-top: 40px;
+            background: white;
+            color: black;
+            padding: 30px;
+            border-radius: 12px;
+            width: 350px;
+            margin-left: auto;
+            margin-right: auto;
+            box-shadow: 0px 5px 20px rgba(0,0,0,0.2);
+        }
+
+        input {
+            margin: 10px;
+            padding: 10px;
+            width: 90%;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        #history {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h2>📈 Stock Predictor</h2>
+
+    <input type="number" id="ma10" placeholder="MA10">
+    <input type="number" id="ma50" placeholder="MA50">
+    <input type="number" id="lag1" placeholder="Lag1">
+
+    <button onclick="predict()">Predict</button>
+    <button onclick="clearHistory()">Clear History</button>
+
+    <div id="result"></div>
+
+    <canvas id="chart" width="300" height="200"></canvas>
+
+    <div id="history"></div>
+
+</div>
+
+<script>
+
+// ✅ Load saved data
+let predictions = JSON.parse(localStorage.getItem("predictions")) || [];
+let labels = predictions.map((_, i) => "Run " + (i + 1));
+
+const ctx = document.getElementById("chart").getContext("2d");
+
+const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "Predicted Price",
+            data: predictions,
+            borderWidth: 2,
+            tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: false,
+                ticks: {
+                    callback: value => "₹ " + value
+                }
+            }
+        }
+    }
+});
+
+// ✅ Show history on load
+updateHistory();
+
+async function predict() {
+
+    const MA10 = parseFloat(document.getElementById("ma10").value);
+    const MA50 = parseFloat(document.getElementById("ma50").value);
+    const Lag1 = parseFloat(document.getElementById("lag1").value);
+
+    const resultBox = document.getElementById("result");
+
+    if (isNaN(MA10) || isNaN(MA50) || isNaN(Lag1)) {
+        resultBox.innerText = "⚠️ Enter all values";
+        return;
+    }
+
+    resultBox.innerText = "⏳ Predicting...";
+
+    try {
+        const response = await fetch("http://16.171.8.174:5000/predict", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ MA10, MA50, Lag1 })
+        });
+
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
+
+        const priceNum = Number(data.predicted_price);
+        const price = priceNum.toFixed(2);
+
+        // ✅ Show result
+        resultBox.innerText = "💰 Predicted Price: ₹ " + price;
+
+        // ✅ Store data
+        predictions.push(priceNum);
+        labels.push("Run " + predictions.length);
+
+        // ✅ Auto-scale chart dynamically
+        const min = Math.min(...predictions);
+        const max = Math.max(...predictions);
+
+        chart.options.scales.y.min = min - 5;
+        chart.options.scales.y.max = max + 5;
+
+        chart.update();
+
+        // ✅ Save
+        localStorage.setItem("predictions", JSON.stringify(predictions));
+
+        updateHistory();
+
+    } catch (error) {
+        console.error(error);
+        resultBox.innerText = "❌ API Error (Check server)";
+    }
+}
+
+// ✅ Update history UI
+function updateHistory() {
+    let html = "<b>Prediction History:</b><br>";
+
+    predictions.forEach((p, i) => {
+        html += `Run ${i+1}: ₹ ${p.toFixed(2)}<br>`;
+    });
+
+    document.getElementById("history").innerHTML = html;
+}
+
+// ✅ Clear history
+function clearHistory() {
+    predictions = [];
+    labels = [];
+
+    localStorage.removeItem("predictions");
+
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+
+    chart.update();
+
+    document.getElementById("history").innerHTML = "";
+    document.getElementById("result").innerText = "🧹 History Cleared";
+}
+
+</script>
+
+</body>
+</html>

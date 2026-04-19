@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stock Prediction</title>
+  <style>
+    body { font-family: Arial; text-align: center; margin-top: 60px; }
+    input { margin: 8px; padding: 10px; width: 200px; }
+    button { padding: 10px 20px; cursor: pointer; }
+    #result { margin-top: 20px; font-size: 20px; color: green; }
+  </style>
+</head>
+<body>
+
+  <h2>📈 Stock Price Prediction</h2>
+
+  <input type="number" id="ma10" placeholder="MA10"><br>
+  <input type="number" id="ma50" placeholder="MA50"><br>
+  <input type="number" id="lag1" placeholder="Lag1"><br>
+
+  <button onclick="predict()">Predict</button>
+
+  <div id="result"></div>
+
+  <script>
+    async function predict() {
+      const MA10 = parseFloat(document.getElementById("ma10").value);
+      const MA50 = parseFloat(document.getElementById("ma50").value);
+      const Lag1 = parseFloat(document.getElementById("lag1").value);
+
+      if (isNaN(MA10) || isNaN(MA50) || isNaN(Lag1)) {
+        document.getElementById("result").innerText = "⚠️ Enter all values";
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:5000/predict", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ MA10, MA50, Lag1 })
+        });
+
+        const data = await response.json();
+        document.getElementById("result").innerText =
+          "Predicted Price: " + data.predicted_price.toFixed(2);
+
+      } catch (error) {
+        document.getElementById("result").innerText =
+          "❌ Error connecting to API";
+      }
+    }
+  </script>
+
+</body>
+</html>
